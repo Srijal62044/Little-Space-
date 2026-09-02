@@ -1,0 +1,7 @@
+{
+  "name": "Priyanka's Little Space",
+  "description": "A soft, elegant, cozy personal life assistant and daily companion designed specifically for Priyanka.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

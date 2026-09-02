@@ -1,0 +1,22 @@
+{
+  "name": "priyanka-birthday-push-backend",
+  "version": "1.0.0",
+  "description": "Production-ready Firebase Cloud Messaging backend for Priyanka's Birthday Push Notifications",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "serve": "firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "firebase-admin": "^12.1.0",
+    "firebase-functions": "^5.0.0",
+    "luxon": "^3.4.4"
+  },
+  "engines": {
+    "node": "18 || 20"
+  }
+}

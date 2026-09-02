@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Center tulip and sparkling star within 66dp safe zone (21dp to 87dp) -->
+    <!-- Tulip petals and bloom -->
+    <path
+        android:fillColor="#E11D48"
+        android:pathData="M54,32 C48,32 38,37 38,49 C38,60 48,68 54,71 C60,68 70,60 70,49 C70,37 60,32 54,32 Z" />
+    <path
+        android:fillColor="#FB7185"
+        android:pathData="M54,32 C54,42 47,56 40,60 C38,55 38,50 38,49 C38,37 48,32 54,32 Z" />
+    <path
+        android:fillColor="#FDA4AF"
+        android:pathData="M54,32 C54,42 61,56 68,60 C70,55 70,50 70,49 C70,37 60,32 54,32 Z" />
+    <!-- Stem & Leaves -->
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M52,70 L56,70 L55,84 L53,84 Z" />
+    <path
+        android:fillColor="#059669"
+        android:pathData="M54,75 C45,75 42,70 42,66 C48,66 52,70 54,75 Z" />
+    <path
+        android:fillColor="#34D399"
+        android:pathData="M54,73 C63,73 66,68 66,64 C60,64 56,68 54,73 Z" />
+    <!-- Sparkles -->
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M73,34 L74.5,38 L78.5,39.5 L74.5,41 L73,45 L71.5,41 L67.5,39.5 L71.5,38 Z" />
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M33,40 L34,42.5 L36.5,43.5 L34,44.5 L33,47 L32,44.5 L29.5,43.5 L32,42.5 Z" />
+</vector>
