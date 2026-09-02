@@ -1,6 +1,7 @@
 package com.example.ui.screens.home
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -66,13 +67,21 @@ fun HomeScreen(
     val daysToNextMilestone by viewModel.daysToNextMilestone.collectAsStateWithLifecycle()
     val isTodayBirthday by viewModel.isTodayBirthday.collectAsStateWithLifecycle()
     val rewardConfig by viewModel.rewardConfig.collectAsStateWithLifecycle()
+    val highlightCountdown by viewModel.highlightCountdown.collectAsStateWithLifecycle()
+    val highlightCountdownDaysRemaining by viewModel.highlightCountdownDaysRemaining.collectAsStateWithLifecycle()
 
     val completedHabitIds = remember(todayHabitLogs) {
         todayHabitLogs.filter { it.isCompleted }.map { it.habitId }.toSet()
     }
 
     val todayTasks = remember(tasks, viewModel.todayDateString) {
-        tasks.filter { it.dueDate == viewModel.todayDateString || it.dueDate.isBlank() }
+        val todayOrUndated = tasks.filter { it.dueDate == viewModel.todayDateString || it.dueDate.isBlank() }
+        if (todayOrUndated.isNotEmpty()) {
+            todayOrUndated
+        } else {
+            val pending = tasks.filter { !it.isCompleted }
+            if (pending.isNotEmpty()) pending else tasks
+        }
     }
 
     val totalGoalsCount = todayTasks.size + habits.size
@@ -187,6 +196,9 @@ fun HomeScreen(
                 isTestMode = rewardConfig.isBirthdayTestMode,
                 birthdayMonth = rewardConfig.birthdayMonth,
                 birthdayDay = rewardConfig.birthdayDay,
+                isHighlighted = highlightCountdown,
+                highlightDays = highlightCountdownDaysRemaining,
+                onDismissHighlight = { viewModel.setHighlightCountdown(false) },
                 onOpenSurprise = { viewModel.openBirthdayExperience(true) }
             )
         }
@@ -299,13 +311,59 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.height(14.dp))
 
                     if (todayTasks.isEmpty()) {
-                        EmptyStateCard(
-                            emoji = "✨",
-                            title = "No tasks for today",
-                            subtitle = "Enjoy your peaceful day or add a small task to get started.",
-                            actionText = "+ Add a Task",
-                            onActionClick = { onNavigateToTab(MainTab.TASKS) }
-                        )
+                        CozyCard(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            backgroundColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(text = "✨", fontSize = 38.sp)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "No tasks for today",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Add your daily tasks or quickly load starter focus goals.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 16.dp)
+                                )
+                                Spacer(modifier = Modifier.height(14.dp))
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Button(
+                                        onClick = { viewModel.seedStarterTasks() },
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.primary
+                                        ),
+                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                                    ) {
+                                        Text(text = "⚡ Add Starter Tasks", style = MaterialTheme.typography.labelMedium)
+                                    }
+                                    OutlinedButton(
+                                        onClick = { onNavigateToTab(MainTab.TASKS) },
+                                        shape = RoundedCornerShape(12.dp),
+                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                                    ) {
+                                        Text(text = "+ Custom Task", style = MaterialTheme.typography.labelMedium)
+                                    }
+                                }
+                            }
+                        }
                     } else {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             todayTasks.take(4).forEach { task ->
@@ -1024,6 +1082,9 @@ fun BirthdayCountdownHomeCard(
     isTestMode: Boolean,
     birthdayMonth: Int,
     birthdayDay: Int,
+    isHighlighted: Boolean = false,
+    highlightDays: Int? = null,
+    onDismissHighlight: () -> Unit = {},
     onOpenSurprise: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1038,6 +1099,17 @@ fun BirthdayCountdownHomeCard(
         }
     }
 
+    val infiniteTransition = rememberInfiniteTransition(label = "countdown_highlight_pulse")
+    val highlightAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "highlight_alpha"
+    )
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -1045,9 +1117,12 @@ fun BirthdayCountdownHomeCard(
             .clip(RoundedCornerShape(24.dp))
             .testTag("home_birthday_countdown_card"),
         shape = RoundedCornerShape(24.dp),
-        color = Color(0xFFFFF5F7),
-        border = BorderStroke(1.5.dp, Color(0xFFFECDD3)),
-        shadowElevation = 2.dp
+        color = if (isHighlighted) Color(0xFFFFF0F3) else Color(0xFFFFF5F7),
+        border = BorderStroke(
+            if (isHighlighted) 2.5.dp else 1.5.dp,
+            if (isHighlighted) Color(0xFFE11D48).copy(alpha = highlightAlpha) else Color(0xFFFECDD3)
+        ),
+        shadowElevation = if (isHighlighted) 8.dp else 2.dp
     ) {
         Column(
             modifier = Modifier
@@ -1055,6 +1130,49 @@ fun BirthdayCountdownHomeCard(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            if (isHighlighted) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFE11D48),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(text = "🔔", fontSize = 16.sp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (highlightDays != null) "Daily Countdown: $highlightDays Days Remaining! ✨" else "Daily Birthday Countdown Notification! ✨",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White
+                            )
+                        }
+                        IconButton(
+                            onClick = onDismissHighlight,
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Dismiss",
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
             if (countdown.isBirthdayToday) {
                 // Birthday Day State
                 Row(
@@ -1070,7 +1188,7 @@ fun BirthdayCountdownHomeCard(
                             fontWeight = FontWeight.ExtraBold,
                             letterSpacing = 0.5.sp
                         ),
-                        color = Color(0xFF9F1239),
+                        color = Color(0xFF881337),
                         textAlign = TextAlign.Center
                     )
                 }
@@ -1134,13 +1252,13 @@ fun BirthdayCountdownHomeCard(
                             text = "Priyanka's Birthday",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF9F1239)
+                            color = Color(0xFF881337)
                         )
                         Text(
                             text = "10 September ${countdown.targetYear}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFFBE123C),
-                            fontWeight = FontWeight.SemiBold
+                            color = Color(0xFF9F1239),
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
@@ -1165,7 +1283,11 @@ fun BirthdayCountdownHomeCard(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "“Something special is getting closer... ✨”",
+                    text = if (isHighlighted && highlightDays != null) {
+                        "“Countdown update: Only $highlightDays days until Priyanka's celebration! ✨”"
+                    } else {
+                        "“Something special is getting closer... ✨”"
+                    },
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontStyle = FontStyle.Italic
                     ),

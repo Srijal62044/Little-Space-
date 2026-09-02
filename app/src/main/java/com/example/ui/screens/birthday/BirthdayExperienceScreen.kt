@@ -124,7 +124,7 @@ fun BirthdayExperienceScreen(
                                 text = "🎉 Birthday Hub",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.ExtraBold,
-                                color = Color(0xFFBE123C),
+                                color = Color(0xFF881337),
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
                             )
                         }
@@ -160,8 +160,8 @@ fun BirthdayExperienceScreen(
                                 Text(
                                     text = title,
                                     fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isSelected) Color.White else Color(0xFF881337)
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = if (isSelected) Color.White else Color(0xFF4C0519)
                                 )
                             }
                         }
@@ -314,7 +314,7 @@ private fun Scene1Opening(
         Text(
             text = "Someone made a little digital gift box to celebrate your special day. Tap below to begin! 🌷",
             style = MaterialTheme.typography.bodyLarge,
-            color = Color(0xFF1E293B),
+            color = Color(0xFF0F172A),
             fontWeight = FontWeight.Medium,
             textAlign = TextAlign.Center,
             lineHeight = 24.sp,
@@ -392,8 +392,8 @@ private fun Scene2PersonalMessage(
                     Text(
                         text = "Dear Priyanka,",
                         style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFE11D48)
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF881337)
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -401,7 +401,7 @@ private fun Scene2PersonalMessage(
                     Text(
                         text = message,
                         style = MaterialTheme.typography.bodyLarge,
-                        color = Color(0xFF1E293B),
+                        color = Color(0xFF0F172A),
                         textAlign = TextAlign.Center,
                         lineHeight = 26.sp,
                         fontStyle = FontStyle.Normal
@@ -416,9 +416,9 @@ private fun Scene2PersonalMessage(
                         Text(
                             text = "“May today bring you pure smiles and cozy serenity.” 🌸",
                             style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
+                            fontWeight = FontWeight.Bold,
                             fontStyle = FontStyle.Italic,
-                            color = Color(0xFFBE123C),
+                            color = Color(0xFF881337),
                             textAlign = TextAlign.Center,
                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
                         )
@@ -798,7 +798,7 @@ private fun Scene5FinalSurprise(
         Text(
             text = "Hope your day is wrapped in joy, peace, and unforgettable moments.",
             style = MaterialTheme.typography.bodyLarge,
-            color = Color(0xFF1E293B),
+            color = Color(0xFF0F172A),
             fontWeight = FontWeight.Medium,
             textAlign = TextAlign.Center,
             lineHeight = 24.sp

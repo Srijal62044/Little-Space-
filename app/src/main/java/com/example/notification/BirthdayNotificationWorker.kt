@@ -36,7 +36,7 @@ class BirthdayNotificationWorker(
 
             val isBirthdayToday = (currentMonth == targetMonth && currentDay == targetDay)
 
-            if (isBirthdayToday) {
+            if (isBirthdayToday && config.isBirthdayNotificationEnabled) {
                 // Determine current active slots according to schedule frequency
                 val candidateSlots = BirthdayNotificationMessages.SCHEDULE_SERIES.filter { item ->
                     if (item.slotTime == "23:55" && !config.allowFinalNotification2355) {
@@ -88,6 +88,63 @@ class BirthdayNotificationWorker(
                         )
                     } else {
                         Log.d(TAG, "Slot ${eligibleSlot.slotTime} was already delivered.")
+                    }
+                }
+            } else if (config.isCountdownNotificationEnabled) {
+                // Check daily birthday countdown push notification leading up to September 10
+                val calToday = Calendar.getInstance().apply {
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                val calTarget = Calendar.getInstance().apply {
+                    set(Calendar.YEAR, currentYear)
+                    set(Calendar.MONTH, targetMonth - 1)
+                    set(Calendar.DAY_OF_MONTH, targetDay)
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+
+                if (calToday.before(calTarget)) {
+                    val diffMillis = calTarget.timeInMillis - calToday.timeInMillis
+                    val daysRemaining = Math.round(diffMillis.toDouble() / (1000 * 60 * 60 * 24)).toInt()
+
+                    val scheduledHour = config.countdownNotificationHour
+                    val scheduledMinute = config.countdownNotificationMinute
+                    val currentTotalMinutes = currentHour * 60 + currentMinute
+                    val scheduledTotalMinutes = scheduledHour * 60 + scheduledMinute
+                    val diffMinutes = currentTotalMinutes - scheduledTotalMinutes
+
+                    // Delivery window: within [scheduledTime, scheduledTime + 120m]
+                    if (diffMinutes in 0..120) {
+                        val todayDateStr = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(now.time)
+                        if (config.lastCountdownNotificationDate != todayDateStr || config.lastCountdownNotificationYear != currentYear) {
+                            Log.d(TAG, "Triggering daily countdown notification ($daysRemaining days remaining)...")
+                            val countdownMsg = BirthdayNotificationMessages.getCountdownMessage(daysRemaining)
+
+                            NotificationHelper.showCountdownNotification(
+                                context = applicationContext,
+                                title = countdownMsg.title,
+                                message = countdownMsg.message,
+                                daysRemaining = daysRemaining,
+                                isTest = false
+                            )
+
+                            db.rewardConfigDao().insertOrUpdate(
+                                config.copy(
+                                    lastCountdownNotificationYear = currentYear,
+                                    lastCountdownNotificationDate = todayDateStr,
+                                    lastCountdownDaysRemaining = daysRemaining,
+                                    lastNotificationStatus = "SUCCESS",
+                                    lastNotificationError = ""
+                                )
+                            )
+                        } else {
+                            Log.d(TAG, "Countdown notification for date $todayDateStr already delivered.")
+                        }
                     }
                 }
             }

@@ -189,6 +189,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _celebrationReward = MutableStateFlow<Pair<Int, String>?>(null) // milestone to title
     val celebrationReward: StateFlow<Pair<Int, String>?> = _celebrationReward.asStateFlow()
 
+    private val _highlightCountdown = MutableStateFlow(false)
+    val highlightCountdown: StateFlow<Boolean> = _highlightCountdown.asStateFlow()
+
+    private val _highlightCountdownDaysRemaining = MutableStateFlow<Int?>(null)
+    val highlightCountdownDaysRemaining: StateFlow<Int?> = _highlightCountdownDaysRemaining.asStateFlow()
+
+    fun setHighlightCountdown(highlight: Boolean, daysRemaining: Int? = null) {
+        _highlightCountdown.value = highlight
+        _highlightCountdownDaysRemaining.value = daysRemaining
+    }
+
     // UI state
     private val _isPiaThinking = MutableStateFlow(false)
     val isPiaThinking: StateFlow<Boolean> = _isPiaThinking.asStateFlow()
@@ -218,6 +229,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     init {
         seedInitialDataIfEmpty()
         loadOnlineDiscover("Top Hits")
+        observeDailyActivities()
     }
 
     private fun getQuoteForToday(): String {
@@ -250,30 +262,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // If no tasks exist, seed initial helpful tasks
             val initialTasks = taskRepo.allTasks.first()
             if (initialTasks.isEmpty()) {
-                val defaultTasks = listOf(
-                    TaskEntity(
-                        title = "Review priority study / work goals",
-                        category = "Study",
-                        priority = "High",
-                        dueDate = todayDateString,
-                        dueTime = "10:30"
-                    ),
-                    TaskEntity(
-                        title = "Afternoon hydration & stretch pause",
-                        category = "Personal",
-                        priority = "Medium",
-                        dueDate = todayDateString,
-                        dueTime = "15:00"
-                    ),
-                    TaskEntity(
-                        title = "Evening walk & listen to favorite playlist",
-                        category = "Wellness",
-                        priority = "Low",
-                        dueDate = todayDateString,
-                        dueTime = "18:30"
-                    )
-                )
-                defaultTasks.forEach { taskRepo.insertTask(it) }
+                seedStarterTasks()
             }
 
             // Seed sample notes
@@ -401,11 +390,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 rewardRepo.insertAllMemories(memories)
             }
 
-            // Streak starts from 0: Clear any old 27-day dummy seeded records from existing database
-            val existingActivities = rewardRepo.getAllActivitiesOnce()
-            if (existingActivities.size >= 15) {
-                rewardRepo.clearAllActivities()
-            }
             // Recalculate today's real activity based on actual user completed tasks & habits
             recalculateDailyActivity()
 
@@ -502,14 +486,55 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun observeDailyActivities() {
+        viewModelScope.launch {
+            combine(
+                taskRepo.allTasks,
+                habitRepo.allHabits,
+                habitRepo.getLogsForDate(todayDateString),
+                rewardRepo.rewardConfig
+            ) { tasks, habits, habitLogs, config ->
+                val cfg = config ?: RewardConfigEntity()
+                val tasksCompleted = tasks.count { it.isCompleted }
+                val habitsCompleted = habitLogs.count { it.isCompleted }
+
+                val isStreakAchieved = when (cfg.streakRule) {
+                    "AT_LEAST_ONE_TASK" -> tasksCompleted >= 1
+                    "ALL_HABITS" -> habits.isNotEmpty() && habitsCompleted >= habits.size
+                    "AT_LEAST_ONE_HABIT" -> habitsCompleted >= 1
+                    else -> tasksCompleted >= 1 || habitsCompleted >= 1
+                }
+
+                DailyActivityEntity(
+                    date = todayDateString,
+                    tasksCompleted = tasksCompleted,
+                    habitsCompleted = habitsCompleted,
+                    isStreakAchieved = isStreakAchieved
+                )
+            }.collect { activity ->
+                val currentToday = rewardRepo.getActivityForDate(todayDateString)
+                if (currentToday == null ||
+                    currentToday.tasksCompleted != activity.tasksCompleted ||
+                    currentToday.habitsCompleted != activity.habitsCompleted ||
+                    currentToday.isStreakAchieved != activity.isStreakAchieved
+                ) {
+                    rewardRepo.recordDailyActivity(activity)
+                    val updatedActivities = rewardRepo.getAllActivitiesOnce()
+                    val newStreak = computeCurrentStreak(updatedActivities)
+                    checkAndUnlockMilestones(newStreak)
+                }
+            }
+        }
+    }
+
     fun recalculateDailyActivity() {
         viewModelScope.launch {
-            val tasks = allTasks.value
-            val habits = allHabits.value
-            val habitLogs = todayHabitLogs.value
-            val config = rewardConfig.value
+            val tasks = taskRepo.allTasks.first()
+            val habits = habitRepo.allHabits.first()
+            val habitLogs = habitRepo.getLogsForDate(todayDateString).first()
+            val config = rewardRepo.getRewardConfigOnce() ?: RewardConfigEntity()
 
-            val tasksCompleted = tasks.count { it.isCompleted && (it.dueDate == todayDateString || it.dueDate.isBlank()) }
+            val tasksCompleted = tasks.count { it.isCompleted }
             val habitsCompleted = habitLogs.count { it.isCompleted }
 
             val isStreakAchieved = when (config.streakRule) {
@@ -565,6 +590,42 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Task actions
+    fun seedStarterTasks() {
+        viewModelScope.launch {
+            val defaultTasks = listOf(
+                TaskEntity(
+                    title = "Review priority study / work goals",
+                    category = "Study",
+                    priority = "High",
+                    dueDate = todayDateString,
+                    dueTime = "10:30"
+                ),
+                TaskEntity(
+                    title = "Afternoon hydration & stretch pause",
+                    category = "Personal",
+                    priority = "Medium",
+                    dueDate = todayDateString,
+                    dueTime = "15:00"
+                ),
+                TaskEntity(
+                    title = "Evening walk & listen to favorite playlist",
+                    category = "Wellness",
+                    priority = "Low",
+                    dueDate = todayDateString,
+                    dueTime = "18:30"
+                ),
+                TaskEntity(
+                    title = "Read a chapter or wind-down routine",
+                    category = "Mind",
+                    priority = "Medium",
+                    dueDate = todayDateString,
+                    dueTime = "21:30"
+                )
+            )
+            defaultTasks.forEach { taskRepo.insertTask(it) }
+        }
+    }
+
     fun addTask(
         title: String,
         description: String,
@@ -1171,6 +1232,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun sendTestPushNotification(slotTime: String = "00:00", onResult: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
             com.example.notification.PushNotificationManager(getApplication()).sendTestPushNotification(slotTime) { success ->
+                onResult(success)
+            }
+        }
+    }
+
+    fun sendTestCountdownPushNotification(daysRemaining: Int = 8, onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            com.example.notification.PushNotificationManager(getApplication()).sendTestCountdownPushNotification(daysRemaining) { success ->
                 onResult(success)
             }
         }

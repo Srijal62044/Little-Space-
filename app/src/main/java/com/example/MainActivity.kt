@@ -304,7 +304,21 @@ class MainActivity : ComponentActivity() {
     private fun handleBirthdayIntent(intent: Intent?) {
         if (intent == null) return
         val openBirthday = intent.getBooleanExtra(NotificationHelper.EXTRA_OPEN_BIRTHDAY_SURPRISE, false)
+        val openCountdown = intent.getBooleanExtra(NotificationHelper.EXTRA_OPEN_BIRTHDAY_COUNTDOWN, false)
+        val daysRemaining = intent.getIntExtra(NotificationHelper.EXTRA_DAYS_REMAINING, -1)
         val action = intent.action
+
+        if (openCountdown || action == "ACTION_OPEN_BIRTHDAY_COUNTDOWN" || action == "ACTION_TEST_COUNTDOWN_NOTIFICATION") {
+            if (daysRemaining == 0) {
+                viewModel.openBirthdayExperience(true)
+            } else {
+                viewModel.openBirthdayExperience(false)
+                viewModel.openAdminConfig(false)
+                viewModel.setHighlightCountdown(true, if (daysRemaining >= 0) daysRemaining else null)
+            }
+            return
+        }
+
         if (openBirthday || action == "ACTION_OPEN_BIRTHDAY_SURPRISE" || action == "ACTION_TEST_BIRTHDAY_NOTIFICATION") {
             viewModel.openBirthdayExperience(true)
         }

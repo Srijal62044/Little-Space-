@@ -15,6 +15,58 @@
 const admin = require('firebase-admin');
 const { DateTime } = require('luxon');
 
+/**
+ * Birthday Notification Messages for Countdown (Days Remaining)
+ */
+const COUNTDOWN_MESSAGES = {
+  1: {
+    title: "🚨 1 DAY REMAINING!",
+    body: "Tomorrow is Priyanka's birthday! 🎂🎉"
+  },
+  2: {
+    title: "🎁 2 Days Remaining!",
+    body: "Just 2 more sleeps until the big day! ✨"
+  },
+  3: {
+    title: "🎂 3 Days Remaining!",
+    body: "Only 3 days left! The birthday countdown is on! 🎉"
+  },
+  4: {
+    title: "💫 4 Days Remaining!",
+    body: "The special day is getting closer! ✨"
+  },
+  5: {
+    title: "🎉 5 Days Remaining!",
+    body: "Just 5 more days until the celebration! 🎁"
+  },
+  6: {
+    title: "✨ 6 Days Remaining!",
+    body: "The countdown continues... 🎂"
+  },
+  7: {
+    title: "🎁 7 Days Remaining!",
+    body: "Only 7 days until Priyanka's special day! 🌸"
+  },
+  8: {
+    title: "🎂 8 Days Remaining!",
+    body: "Priyanka's birthday is getting closer! ✨"
+  },
+  0: {
+    title: "🎂 HAPPY BIRTHDAY, PRIYANKA!",
+    body: "Today is the day! Tap to open your birthday surprise 🎁✨"
+  }
+};
+
+function getCountdownMessage(daysRemaining) {
+  if (COUNTDOWN_MESSAGES[daysRemaining]) {
+    return COUNTDOWN_MESSAGES[daysRemaining];
+  }
+  return {
+    title: `🎂 ${daysRemaining} Days Remaining!`,
+    body: `The countdown to Priyanka's special day is on! ✨`
+  };
+}
+
 const BIRTHDAY_SCHEDULE = [
   {
     slot: "00:00",
@@ -266,7 +318,248 @@ async function processBirthdayNotifications(db, messaging) {
     await usersRef.doc(userId).update(updateData);
   }
 
+  // Also check daily countdown notifications for users leading up to their birthday
+  const countdownResult = await processDailyCountdownNotifications(db, messaging);
+
+  return {
+    birthdaySeries: { sent: sentCount, checked: checkedCount },
+    countdown: countdownResult
+  };
+}
+
+/**
+ * Checks all registered users and sends exactly ONE daily birthday countdown notification
+ * at the user's configured notification time (default 10:00 AM local time).
+ */
+async function processDailyCountdownNotifications(db, messaging) {
+  const usersRef = db.collection('users');
+  const snapshot = await usersRef.where('countdownNotificationEnabled', '!=', false).get();
+
+  if (snapshot.empty) {
+    console.log('No users with birthday countdown notifications enabled.');
+    return { sent: 0, checked: 0 };
+  }
+
+  let sentCount = 0;
+  let checkedCount = 0;
+
+  for (const doc of snapshot.docs) {
+    checkedCount++;
+    const user = doc.data();
+    const userId = doc.id;
+    const userTimezone = user.timezone || 'Asia/Kolkata';
+    const tokens = user.fcmTokens || [];
+
+    if (tokens.length === 0) {
+      continue;
+    }
+
+    // Evaluate date and time in user's local timezone (preventing UTC mismatch)
+    const nowInUserTz = DateTime.now().setZone(userTimezone);
+    const todayDateStr = nowInUserTz.toISODate(); // "YYYY-MM-DD"
+    const currentYear = nowInUserTz.year;
+
+    const targetMonth = user.birthdayMonth || 9; // September
+    const targetDay = user.birthdayDay || 10;     // 10th
+
+    // Target birthday date for current calendar year
+    const targetBdayThisYear = DateTime.fromObject({
+      year: currentYear,
+      month: targetMonth,
+      day: targetDay,
+      hour: 0,
+      minute: 0,
+      second: 0
+    }, { zone: userTimezone });
+
+    // Target date start of day vs current day start of day
+    const startOfToday = nowInUserTz.startOf('day');
+    const startOfTarget = targetBdayThisYear.startOf('day');
+
+    let daysRemaining = 0;
+    let targetYear = currentYear;
+
+    if (startOfToday < startOfTarget) {
+      // Before September 10 of current year -> Target is September 10 of current year
+      daysRemaining = Math.round(startOfTarget.diff(startOfToday, 'days').days);
+      targetYear = currentYear;
+    } else if (startOfToday.hasSame(startOfTarget, 'day')) {
+      // Exactly September 10 -> Today is birthday (days remaining = 0)
+      // Note: Full day multi-series scheduler handles slot wishes on September 10.
+      // We skip countdown "days remaining" notification on birthday day itself as per requirement.
+      console.log(`User ${userId} is celebrating Birthday Today (${todayDateStr}). Countdown skipped.`);
+      continue;
+    } else {
+      // After September 10 of current year: Stop countdown notifications for this year.
+      // Countdown for next year's cycle will begin next year.
+      console.log(`User ${userId}: Birthday for year ${currentYear} has already passed. Countdown stopped for this year.`);
+      continue;
+    }
+
+    // Check configured notification time (Default: 10:00 AM)
+    const scheduledHour = user.countdownNotificationHour ?? 10;
+    const scheduledMinute = user.countdownNotificationMinute ?? 0;
+
+    const currentTotalMinutes = nowInUserTz.hour * 60 + nowInUserTz.minute;
+    const scheduledTotalMinutes = scheduledHour * 60 + scheduledMinute;
+    const diffMinutes = currentTotalMinutes - scheduledTotalMinutes;
+
+    // Delivery Window: Within [scheduledTime, scheduledTime + 120 minutes]
+    // Anti-flood: If device/server was offline, only the current day's single notification is sent once.
+    if (diffMinutes < 0 || diffMinutes > 120) {
+      continue;
+    }
+
+    // Duplicate Protection: Check if today's countdown notification has already been sent
+    const countdownState = user.birthdayCountdownState || {};
+    if (countdownState.lastSentDate === todayDateStr && countdownState.year === currentYear) {
+      console.log(`User ${userId} already received countdown notification for date ${todayDateStr}. Skipping.`);
+      continue;
+    }
+
+    const messageData = getCountdownMessage(daysRemaining);
+
+    console.log(`Sending Countdown Notification (${daysRemaining} Days Left) to User ${userId} [${messageData.title}]...`);
+
+    const payload = {
+      notification: {
+        title: messageData.title,
+        body: messageData.body
+      },
+      data: {
+        type: "birthday_countdown",
+        action: "birthday_countdown",
+        open_birthday_countdown: "true",
+        days_remaining: String(daysRemaining),
+        target_year: String(targetYear),
+        target_date: targetBdayThisYear.toISODate(),
+        timestamp: String(Date.now())
+      },
+      android: {
+        priority: "high",
+        notification: {
+          channelId: "birthday_surprise_channel",
+          priority: "high",
+          defaultSound: true,
+          defaultVibrateTimings: true,
+          color: "#E11D48",
+          clickAction: "ACTION_OPEN_BIRTHDAY_COUNTDOWN"
+        }
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: "default",
+            badge: 1
+          }
+        }
+      }
+    };
+
+    const invalidTokens = [];
+
+    for (const token of tokens) {
+      try {
+        const response = await messaging.send({ token, ...payload });
+        console.log(`Successfully sent countdown push (${daysRemaining} days) to token ${token.substring(0, 10)}... MsgId: ${response}`);
+        sentCount++;
+      } catch (error) {
+        console.error(`FCM countdown send error for token ${token.substring(0, 10)}:`, error.code, error.message);
+        if (
+          error.code === 'messaging/invalid-registration-token' ||
+          error.code === 'messaging/registration-token-not-registered'
+        ) {
+          invalidTokens.push(token);
+        }
+      }
+    }
+
+    // Record server-side duplicate prevention state
+    const updateData = {
+      birthdayCountdownState: {
+        year: currentYear,
+        lastSentDate: todayDateStr,
+        lastSentDaysRemaining: daysRemaining
+      },
+      lastCountdownNotificationTimestamp: admin.firestore.FieldValue.serverTimestamp(),
+      lastCountdownNotificationStatus: 'SUCCESS'
+    };
+
+    if (invalidTokens.length > 0) {
+      updateData.fcmTokens = admin.firestore.FieldValue.arrayRemove(...invalidTokens);
+    }
+
+    await usersRef.doc(userId).update(updateData);
+  }
+
   return { sent: sentCount, checked: checkedCount };
+}
+
+/**
+ * Sends a single test birthday countdown notification without modifying real countdown state.
+ */
+async function sendTestCountdownNotification(db, messaging, userId, daysRemaining = 8, customToken = null) {
+  let tokens = [];
+
+  if (customToken) {
+    tokens = [customToken];
+  } else if (userId) {
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (userDoc.exists) {
+      tokens = userDoc.data().fcmTokens || [];
+    }
+  }
+
+  if (tokens.length === 0) {
+    throw new Error('No FCM tokens available to send test countdown push.');
+  }
+
+  const messageData = getCountdownMessage(daysRemaining);
+
+  const payload = {
+    notification: {
+      title: messageData.title,
+      body: messageData.body
+    },
+    data: {
+      type: "test_countdown_notification",
+      action: "birthday_countdown",
+      open_birthday_countdown: "true",
+      days_remaining: String(daysRemaining),
+      is_test: "true",
+      timestamp: String(Date.now())
+    },
+    android: {
+      priority: "high",
+      notification: {
+        channelId: "birthday_surprise_channel",
+        priority: "high",
+        color: "#E11D48"
+      }
+    }
+  };
+
+  let successCount = 0;
+  const errors = [];
+
+  for (const token of tokens) {
+    try {
+      await messaging.send({ token, ...payload });
+      successCount++;
+    } catch (err) {
+      errors.push({ token: token.substring(0, 8) + '...', code: err.code, message: err.message });
+    }
+  }
+
+  return {
+    success: successCount > 0,
+    delivered: successCount,
+    total: tokens.length,
+    daysRemaining,
+    title: messageData.title,
+    body: messageData.body,
+    errors
+  };
 }
 
 /**
@@ -329,6 +622,10 @@ async function sendTestNotification(db, messaging, userId, slotTime = "00:00", c
 
 module.exports = {
   BIRTHDAY_SCHEDULE,
+  COUNTDOWN_MESSAGES,
+  getCountdownMessage,
   processBirthdayNotifications,
-  sendTestNotification
+  processDailyCountdownNotifications,
+  sendTestNotification,
+  sendTestCountdownNotification
 };

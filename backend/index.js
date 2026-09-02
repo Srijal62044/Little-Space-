@@ -2,7 +2,15 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
-const { BIRTHDAY_SCHEDULE, processBirthdayNotifications, sendTestNotification } = require('./scheduler');
+const {
+  BIRTHDAY_SCHEDULE,
+  COUNTDOWN_MESSAGES,
+  getCountdownMessage,
+  processBirthdayNotifications,
+  processDailyCountdownNotifications,
+  sendTestNotification,
+  sendTestCountdownNotification
+} = require('./scheduler');
 
 // Initialize Firebase Admin SDK
 // Uses GOOGLE_APPLICATION_CREDENTIALS or Firebase default credentials in Cloud Functions / Cloud Run
@@ -38,9 +46,21 @@ app.get('/api/schedule', (req, res) => {
 });
 
 /**
- * Register or update device FCM token and user timezone
+ * Get Countdown Schedule / Sample Messages
+ * GET /api/countdown/schedule
+ */
+app.get('/api/countdown/schedule', (req, res) => {
+  res.json({
+    birthday: "September 10",
+    defaultNotificationTime: "10:00 AM",
+    messages: COUNTDOWN_MESSAGES
+  });
+});
+
+/**
+ * Register or update device FCM token and user timezone & notification settings
  * POST /api/registerDevice
- * Body: { userId, token, timezone, birthdayNotificationEnabled, notificationFrequency, allowFinalNotification2355 }
+ * Body: { userId, token, timezone, birthdayNotificationEnabled, notificationFrequency, allowFinalNotification2355, countdownNotificationEnabled, countdownNotificationHour, countdownNotificationMinute }
  */
 app.post('/api/registerDevice', async (req, res) => {
   try {
@@ -50,7 +70,10 @@ app.post('/api/registerDevice', async (req, res) => {
       timezone = 'Asia/Kolkata',
       birthdayNotificationEnabled = true,
       notificationFrequency = '2_HOURS',
-      allowFinalNotification2355 = true
+      allowFinalNotification2355 = true,
+      countdownNotificationEnabled = true,
+      countdownNotificationHour = 10,
+      countdownNotificationMinute = 0
     } = req.body;
 
     if (!token) {
@@ -71,10 +94,17 @@ app.post('/api/registerDevice', async (req, res) => {
         allowFinalNotification2355,
         birthdayNotificationHour: 0,
         birthdayNotificationMinute: 0,
+        countdownNotificationEnabled: countdownNotificationEnabled ?? true,
+        countdownNotificationHour: countdownNotificationHour ?? 10,
+        countdownNotificationMinute: countdownNotificationMinute ?? 0,
         fcmTokens: [token],
         birthdayNotificationState: {
           year: 0,
           sentSlots: []
+        },
+        birthdayCountdownState: {
+          year: 0,
+          lastSentDate: ""
         },
         lastBirthdayNotificationYear: 0,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -86,6 +116,9 @@ app.post('/api/registerDevice', async (req, res) => {
         birthdayNotificationEnabled: birthdayNotificationEnabled ?? true,
         notificationFrequency,
         allowFinalNotification2355,
+        countdownNotificationEnabled: countdownNotificationEnabled ?? true,
+        countdownNotificationHour: countdownNotificationHour ?? 10,
+        countdownNotificationMinute: countdownNotificationMinute ?? 0,
         fcmTokens: admin.firestore.FieldValue.arrayUnion(token),
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       });
@@ -99,7 +132,7 @@ app.post('/api/registerDevice', async (req, res) => {
 });
 
 /**
- * Send Test Push Notification
+ * Send Test Push Notification (Birthday Slots)
  * POST /api/sendTestNotification
  * Body: { userId, token, slotTime }
  */
@@ -115,6 +148,22 @@ app.post('/api/sendTestNotification', async (req, res) => {
 });
 
 /**
+ * Send Test Countdown Push Notification
+ * POST /api/sendTestCountdownNotification
+ * Body: { userId, token, daysRemaining }
+ */
+app.post('/api/sendTestCountdownNotification', async (req, res) => {
+  try {
+    const { userId = 'priyanka_default', token, daysRemaining = 8 } = req.body;
+    const result = await sendTestCountdownNotification(db, messaging, userId, parseInt(daysRemaining, 10) || 8, token);
+    res.json(result);
+  } catch (error) {
+    console.error('Send test countdown notification failed:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * Cron trigger endpoint (called by Google Cloud Scheduler or external cron)
  * POST /api/cron/checkBirthdayTrigger
  */
@@ -124,6 +173,20 @@ app.post('/api/cron/checkBirthdayTrigger', async (req, res) => {
     res.json({ success: true, ...result });
   } catch (error) {
     console.error('Birthday cron execution failed:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Dedicated Countdown cron trigger endpoint
+ * POST /api/cron/checkCountdownTrigger
+ */
+app.post('/api/cron/checkCountdownTrigger', async (req, res) => {
+  try {
+    const result = await processDailyCountdownNotifications(db, messaging);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('Countdown cron execution failed:', error);
     res.status(500).json({ error: error.message });
   }
 });

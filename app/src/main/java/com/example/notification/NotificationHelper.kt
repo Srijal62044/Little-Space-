@@ -20,9 +20,12 @@ object NotificationHelper {
     const val CHANNEL_DESC_BIRTHDAY = "Special birthday notifications, milestone celebrations, and warm surprises for Priyanka"
     
     const val NOTIFICATION_ID_BIRTHDAY_BASE = 100900
+    const val NOTIFICATION_ID_COUNTDOWN_BASE = 100800
     const val NOTIFICATION_ID_TEST = 100999
 
     const val EXTRA_OPEN_BIRTHDAY_SURPRISE = "open_birthday_surprise"
+    const val EXTRA_OPEN_BIRTHDAY_COUNTDOWN = "open_birthday_countdown"
+    const val EXTRA_DAYS_REMAINING = "days_remaining"
 
     fun createNotificationChannels(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -98,6 +101,59 @@ object NotificationHelper {
             notificationManager.notify(notificationId, builder.build())
         } catch (e: SecurityException) {
             // Permission might have been revoked by user in system settings
+        }
+    }
+
+    fun showCountdownNotification(
+        context: Context,
+        title: String,
+        message: String,
+        daysRemaining: Int,
+        isTest: Boolean = false
+    ) {
+        createNotificationChannels(context)
+
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra(EXTRA_OPEN_BIRTHDAY_COUNTDOWN, true)
+            putExtra(EXTRA_DAYS_REMAINING, daysRemaining)
+            if (daysRemaining == 0) {
+                putExtra(EXTRA_OPEN_BIRTHDAY_SURPRISE, true)
+            }
+            action = if (isTest) "ACTION_TEST_COUNTDOWN_NOTIFICATION" else "ACTION_OPEN_BIRTHDAY_COUNTDOWN"
+        }
+
+        val notificationId = if (isTest) NOTIFICATION_ID_TEST else NOTIFICATION_ID_COUNTDOWN_BASE + (daysRemaining % 100)
+
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            notificationId,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID_BIRTHDAY)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setStyle(
+                NotificationCompat.BigTextStyle()
+                    .bigText(message)
+                    .setSummaryText(if (daysRemaining == 0) "Priyanka's Birthday 🎂" else "Birthday Countdown 🎂 ($daysRemaining days remaining)")
+            )
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_EVENT)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .setColor(0xFFE11D48.toInt())
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+
+        try {
+            val notificationManager = NotificationManagerCompat.from(context)
+            notificationManager.notify(notificationId, builder.build())
+        } catch (e: SecurityException) {
+            // Handled gracefully
         }
     }
 

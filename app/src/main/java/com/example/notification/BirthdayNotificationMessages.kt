@@ -8,7 +8,69 @@ data class BirthdayNotificationScheduleItem(
     val message: String
 )
 
+data class CountdownNotificationItem(
+    val daysRemaining: Int,
+    val title: String,
+    val message: String
+)
+
 object BirthdayNotificationMessages {
+
+    val COUNTDOWN_SERIES: Map<Int, CountdownNotificationItem> = mapOf(
+        1 to CountdownNotificationItem(
+            daysRemaining = 1,
+            title = "🚨 1 DAY REMAINING!",
+            message = "Tomorrow is Priyanka's birthday! 🎂🎉"
+        ),
+        2 to CountdownNotificationItem(
+            daysRemaining = 2,
+            title = "🎁 2 Days Remaining!",
+            message = "Just 2 more sleeps until the big day! ✨"
+        ),
+        3 to CountdownNotificationItem(
+            daysRemaining = 3,
+            title = "🎂 3 Days Remaining!",
+            message = "Only 3 days left! The birthday countdown is on! 🎉"
+        ),
+        4 to CountdownNotificationItem(
+            daysRemaining = 4,
+            title = "💫 4 Days Remaining!",
+            message = "The special day is getting closer! ✨"
+        ),
+        5 to CountdownNotificationItem(
+            daysRemaining = 5,
+            title = "🎉 5 Days Remaining!",
+            message = "Just 5 more days until the celebration! 🎁"
+        ),
+        6 to CountdownNotificationItem(
+            daysRemaining = 6,
+            title = "✨ 6 Days Remaining!",
+            message = "The countdown continues... 🎂"
+        ),
+        7 to CountdownNotificationItem(
+            daysRemaining = 7,
+            title = "🎁 7 Days Remaining!",
+            message = "Only 7 days until Priyanka's special day! 🌸"
+        ),
+        8 to CountdownNotificationItem(
+            daysRemaining = 8,
+            title = "🎂 8 Days Remaining!",
+            message = "Priyanka's birthday is getting closer! ✨"
+        ),
+        0 to CountdownNotificationItem(
+            daysRemaining = 0,
+            title = "🎂 HAPPY BIRTHDAY, PRIYANKA!",
+            message = "Today is the day! Tap to open your birthday surprise 🎁✨"
+        )
+    )
+
+    fun getCountdownMessage(daysRemaining: Int): CountdownNotificationItem {
+        return COUNTDOWN_SERIES[daysRemaining] ?: CountdownNotificationItem(
+            daysRemaining = daysRemaining,
+            title = "🎂 $daysRemaining Days Remaining!",
+            message = "The countdown to Priyanka's special day is on! ✨"
+        )
+    }
 
     val SCHEDULE_SERIES: List<BirthdayNotificationScheduleItem> = listOf(
         BirthdayNotificationScheduleItem(

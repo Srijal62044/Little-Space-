@@ -71,5 +71,15 @@ data class RewardConfigEntity(
     val lastNotificationError: String = "",
     val fcmToken: String = "",
     val fcmServerRegistered: Boolean = false,
-    val deviceTimezone: String = ""
+    val deviceTimezone: String = "",
+
+    // Daily Birthday Countdown Push Notification Configuration
+    val isCountdownNotificationEnabled: Boolean = true,
+    val countdownNotificationHour: Int = 10, // 10:00 AM default
+    val countdownNotificationMinute: Int = 0,
+    val lastCountdownNotificationYear: Int = 0,
+    val lastCountdownNotificationDate: String = "", // "YYYY-MM-DD" in local timezone
+    val lastCountdownDaysRemaining: Int = -1,
+    val highlightCountdownCard: Boolean = false,
+    val highlightCountdownMessage: String = ""
 )

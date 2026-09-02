@@ -58,6 +58,14 @@ fun AdminRewardConfigScreen(
     var testPushStatusMessage by remember { mutableStateOf<String?>(null) }
     var isSendingTestPush by remember { mutableStateOf(false) }
 
+    // Daily Countdown Notification Settings
+    var isCountdownEnabled by remember(config) { mutableStateOf(config.isCountdownNotificationEnabled) }
+    var countdownHour by remember(config) { mutableIntStateOf(config.countdownNotificationHour) }
+    var countdownMinute by remember(config) { mutableIntStateOf(config.countdownNotificationMinute) }
+    var selectedCountdownTestDays by remember { mutableIntStateOf(8) }
+    var countdownTestStatusMessage by remember { mutableStateOf<String?>(null) }
+    var isSendingCountdownTestPush by remember { mutableStateOf(false) }
+
     var bdayMonth by remember(config) { mutableIntStateOf(config.birthdayMonth) }
     var bdayDay by remember(config) { mutableIntStateOf(config.birthdayDay) }
     var isTestMode by remember(config) { mutableStateOf(config.isBirthdayTestMode) }
@@ -136,7 +144,10 @@ fun AdminRewardConfigScreen(
             reward100Link = r100Link,
             isBirthdayNotificationEnabled = isPushEnabled,
             notificationFrequency = pushFrequency,
-            allowFinalNotification2355 = allowFinal2355
+            allowFinalNotification2355 = allowFinal2355,
+            isCountdownNotificationEnabled = isCountdownEnabled,
+            countdownNotificationHour = countdownHour,
+            countdownNotificationMinute = countdownMinute
         )
         viewModel.updateRewardConfig(updated)
     }
@@ -271,9 +282,272 @@ fun AdminRewardConfigScreen(
                 }
             }
 
-            // 2. BIRTHDAY NOTIFICATION SCHEDULE & MULTI-SERIES DISPATCHER
+            // 2. DAILY BIRTHDAY COUNTDOWN PUSH NOTIFICATIONS
             item {
-                SectionHeader(title = "🔔 Birthday Notification Schedule")
+                SectionHeader(title = "📅 Daily Birthday Countdown Push System")
+            }
+
+            item {
+                val pushManager = remember { PushNotificationManager(context) }
+                val isPermissionGranted = pushManager.isNotificationPermissionGranted()
+                val currentTz = TimeZone.getDefault().id
+
+                CozyCard(
+                    modifier = Modifier.fillMaxWidth().testTag("admin_countdown_push_card"),
+                    backgroundColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        // Switch & Header
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primaryContainer)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CalendarToday,
+                                        contentDescription = "Countdown Notifications",
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text(
+                                        text = "Birthday Countdown Notifications",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "Sends 1 daily notification leading up to September 10",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            Switch(
+                                checked = isCountdownEnabled,
+                                onCheckedChange = { isCountdownEnabled = it },
+                                modifier = Modifier.testTag("admin_countdown_enabled_switch")
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Target Birthday & Calculation Info
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = "🎂 Target Birthday:",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = "Priyanka • September 10 (Every Year)",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "• Dynamic calendar-day calculation in local timezone (anti-UTC drift)\n• 1 notification per day with server-side duplicate prevention\n• Missed notifications are never spammed all at once",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 11.sp,
+                                    lineHeight = 16.sp
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Configurable Notification Time
+                        Text(
+                            text = "Daily Notification Delivery Time",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Current: ${String.format("%02d:%02d", countdownHour, countdownMinute)} (${if (countdownHour < 12) "$countdownHour:00 AM" else "${if (countdownHour == 12) 12 else countdownHour - 12}:00 PM"} local time)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Preset Time Chips (Default: 10:00 AM)
+                        val timePresets = listOf(
+                            Pair(8, "08:00 AM"),
+                            Pair(9, "09:00 AM"),
+                            Pair(10, "10:00 AM (Default)"),
+                            Pair(11, "11:00 AM"),
+                            Pair(12, "12:00 PM"),
+                            Pair(18, "06:00 PM"),
+                            Pair(20, "08:00 PM")
+                        )
+
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(timePresets) { (hour, label) ->
+                                FilterChip(
+                                    selected = countdownHour == hour && countdownMinute == 0,
+                                    onClick = {
+                                        countdownHour = hour
+                                        countdownMinute = 0
+                                    },
+                                    label = { Text(label, fontSize = 11.sp, fontWeight = if (hour == 10) FontWeight.Bold else FontWeight.Normal) }
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Test Countdown Push Notification
+                        Text(
+                            text = "🧪 Test Daily Countdown Push Notification",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Dispatches a real OS push notification without altering real countdown database state.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Text(
+                            text = "Select Days Remaining for Test:",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        val countdownTestSlots = listOf(
+                            Pair(8, "8 Days (Sep 2)"),
+                            Pair(7, "7 Days (Sep 3)"),
+                            Pair(6, "6 Days (Sep 4)"),
+                            Pair(5, "5 Days (Sep 5)"),
+                            Pair(4, "4 Days (Sep 6)"),
+                            Pair(3, "3 Days (Sep 7)"),
+                            Pair(2, "2 Days (Sep 8)"),
+                            Pair(1, "1 Day (Sep 9)"),
+                            Pair(0, "Birthday (Sep 10)")
+                        )
+
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(countdownTestSlots) { (days, label) ->
+                                FilterChip(
+                                    selected = selectedCountdownTestDays == days,
+                                    onClick = { selectedCountdownTestDays = days },
+                                    label = { Text(label, fontSize = 11.sp) }
+                                )
+                            }
+                        }
+
+                        if (countdownTestStatusMessage != null) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = countdownTestStatusMessage ?: "",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Button(
+                            onClick = {
+                                isSendingCountdownTestPush = true
+                                viewModel.sendTestCountdownPushNotification(selectedCountdownTestDays) { success ->
+                                    isSendingCountdownTestPush = false
+                                    countdownTestStatusMessage = if (success) {
+                                        "🧪 Real test countdown push ($selectedCountdownTestDays Days) posted to OS! Tap to open Home & highlight card."
+                                    } else {
+                                        "Failed to post test countdown push. Check notification permissions."
+                                    }
+                                }
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("admin_send_test_countdown_button"),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            ),
+                            enabled = !isSendingCountdownTestPush
+                        ) {
+                            if (isSendingCountdownTestPush) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    color = Color.White,
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Sending Test Push...")
+                            } else {
+                                Icon(imageVector = Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Send Test Countdown Notification ($selectedCountdownTestDays d)")
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. BIRTHDAY DAY NOTIFICATION MULTI-SERIES SCHEDULE (SEPTEMBER 10)
+            item {
+                SectionHeader(title = "🔔 Birthday Day Multi-Wish Schedule (10 Sept)")
             }
 
             item {

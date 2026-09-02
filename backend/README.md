@@ -1,6 +1,6 @@
-# Birthday Day Notification Series - Backend & Cloud Deployment
+# Birthday Day & Daily Countdown Push Notification Backend
 
-Production-ready backend architecture for **Priyanka's Birthday Day Notification Series** using Firebase Cloud Messaging (FCM), Google Cloud Scheduler, and Firestore.
+Production-ready backend architecture for **Priyanka's Birthday Day Notification Series** and **Daily Birthday Countdown Push Notification System** using Firebase Cloud Messaging (FCM), Google Cloud Scheduler, and Firestore.
 
 ---
 
@@ -8,21 +8,38 @@ Production-ready backend architecture for **Priyanka's Birthday Day Notification
 
 ```
 Mobile App (Android)
-        ↓  (Registers FCM Token, Timezone & Frequency Preference)
+        ↓  (Registers FCM Token, Timezone, Countdown Preferences)
 Firestore Database (`users` collection)
         ↓
 Google Cloud Scheduler / Cloud Functions (Cron every 15 minutes)
-        ↓  (Evaluates: Date == Sep 10 in User's Local Timezone && Slot not in sentSlots)
+        ├─▶ Daily Countdown: Leading up to Sep 10 (1 push/day at 10:00 AM local time)
+        └─▶ Birthday Day Series: On Sep 10 (Multi-slot wishes from 00:00 to 23:55)
 Firebase Cloud Messaging (FCM API v1)
         ↓
-Android System Notification (High Priority, Sound & Vibration)
-        ↓  (User taps notification)
-App Launches / Deep Link directly to Birthday Surprise Screen 🎂
+Android System Push Notification (High Priority, Sound & Vibration)
+        ├─▶ Countdown Notification: Deep links to Home & highlights Birthday Countdown Card ✨
+        └─▶ Birthday Wish Notification: Deep links directly to Birthday Experience / Surprise Screen 🎂
 ```
 
 ---
 
-## ⏰ Notification Schedule Series (September 10)
+## 📅 Daily Birthday Countdown Schedule (Leading up to Sept 10)
+
+| Days Remaining | Example Date (2026) | Title | Body | Action on Tap |
+| :--- | :--- | :--- | :--- | :--- |
+| **8 Days** | September 2 | 🎂 8 Days Remaining! | Priyanka's birthday is getting closer! ✨ | Highlights Home Countdown Card |
+| **7 Days** | September 3 | 🎁 7 Days Remaining! | Only 7 days until Priyanka's special day! 🌸 | Highlights Home Countdown Card |
+| **6 Days** | September 4 | ✨ 6 Days Remaining! | The countdown continues... 🎂 | Highlights Home Countdown Card |
+| **5 Days** | September 5 | 🎉 5 Days Remaining! | Just 5 more days until the celebration! 🎁 | Highlights Home Countdown Card |
+| **4 Days** | September 6 | 💫 4 Days Remaining! | The special day is getting closer! ✨ | Highlights Home Countdown Card |
+| **3 Days** | September 7 | 🎂 3 Days Remaining! | Only 3 days left! The birthday countdown is on! 🎉 | Highlights Home Countdown Card |
+| **2 Days** | September 8 | 🎁 2 Days Remaining! | Just 2 more sleeps until the big day! ✨ | Highlights Home Countdown Card |
+| **1 Day** | September 9 | 🚨 1 DAY REMAINING! | Tomorrow is Priyanka's birthday! 🎂🎉 | Shows "🎉 TOMORROW IS THE BIG DAY!" |
+| **0 Days (Sep 10)**| September 10 | 🎂 HAPPY BIRTHDAY, PRIYANKA! | Today is the day! Tap to open your birthday surprise 🎁✨ | Opens Birthday Surprise Directly 🎂 |
+
+---
+
+## ⏰ Birthday Day Notification Series (September 10)
 
 | Time Slot | Message Theme | Title | Body |
 | :--- | :--- | :--- | :--- |
@@ -51,10 +68,18 @@ App Launches / Deep Link directly to Birthday Surprise Screen 🎂
      "timezone": "Asia/Kolkata",
      "birthdayMonth": 9,
      "birthdayDay": 10,
+     "countdownNotificationEnabled": true,
+     "countdownNotificationHour": 10,
+     "countdownNotificationMinute": 0,
      "birthdayNotificationEnabled": true,
      "notificationFrequency": "2_HOURS",
      "allowFinalNotification2355": true,
      "fcmTokens": ["fcm_token_string_here"],
+     "birthdayCountdownState": {
+       "year": 2026,
+       "lastSentDate": "2026-09-02",
+       "lastSentDaysRemaining": 8
+     },
      "birthdayNotificationState": {
        "year": 2026,
        "sentSlots": ["00:00", "02:00"]
@@ -92,7 +117,10 @@ firebase deploy --only functions
 ## 🧪 Testing in Admin Settings
 
 1. Open app → Navigate to **Settings > Rewards Admin (PIN 7890)**.
-2. Under **Birthday Notification Schedule**:
+2. Under **Daily Birthday Countdown Push Notifications**:
+   - Choose days remaining (e.g. `8 Days`, `5 Days`, `1 Day`, `Birthday Today`).
+   - Tap **"Send Test Countdown Push"**.
+   - Tap the notification on the device to see the app highlight the Home Countdown Card!
+3. Under **Birthday Notification Schedule**:
    - Pick any slot (e.g. `00:00`, `12:00`, `23:55`).
    - Tap **"Send Test Push"**.
-   - Tap **"Preview Today's Notification Schedule"** to view all messages.
