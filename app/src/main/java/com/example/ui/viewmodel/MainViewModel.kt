@@ -572,6 +572,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         strictness: String
     ) {
         viewModelScope.launch {
+            val current = userProfile.value
             val updated = UserProfileEntity(
                 id = 1,
                 name = name.ifBlank { "Priyanka" },
@@ -583,7 +584,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 currentGoals = goals,
                 favoriteTheme = theme,
                 morningGreeting = "Good morning, ${name.ifBlank { "Priyanka" }} 🌷",
-                isOnboardingCompleted = true
+                isOnboardingCompleted = true,
+                isDarkMode = current.isDarkMode,
+                followSystemTheme = current.followSystemTheme
             )
             profileRepo.saveUserProfile(updated)
         }

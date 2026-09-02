@@ -59,6 +59,21 @@ fun SettingsScreen(
         )
     }
 
+    fun updateThemeMode(newIsDark: Boolean, newFollowSystem: Boolean) {
+        isDark = newIsDark
+        followSystem = newFollowSystem
+        viewModel.updateProfileSettings(
+            name = name,
+            theme = selectedTheme,
+            greeting = greeting,
+            reminderStrictness = reminderStrictness,
+            wakeTime = wakeTime,
+            sleepTime = sleepTime,
+            isDark = newIsDark,
+            followSystem = newFollowSystem
+        )
+    }
+
     Scaffold(
         topBar = {
             Column(
@@ -190,6 +205,171 @@ fun SettingsScreen(
                         shape = RoundedCornerShape(12.dp),
                         singleLine = true
                     )
+                }
+            }
+
+            // Appearance & Dark Mode
+            item {
+                SectionHeader(title = "Appearance & Dark Mode")
+                CozyCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("settings_dark_mode_card")
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        // Switch row for Quick Dark Mode Toggle
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (isDark && !followSystem) MaterialTheme.colorScheme.primaryContainer
+                                            else MaterialTheme.colorScheme.surfaceVariant
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = if (followSystem) "📱" else if (isDark) "🌙" else "☀️",
+                                        fontSize = 18.sp
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = "Dark Theme",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = when {
+                                            followSystem -> "Auto • Following system theme"
+                                            isDark -> "Dark mode active • Easy on the eyes"
+                                            else -> "Light mode active • Crisp & bright"
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            Switch(
+                                checked = isDark && !followSystem,
+                                onCheckedChange = { checked ->
+                                    updateThemeMode(newIsDark = checked, newFollowSystem = false)
+                                },
+                                modifier = Modifier.testTag("settings_dark_mode_switch")
+                            )
+                        }
+
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                            thickness = 1.dp
+                        )
+
+                        // 3-Option Quick Select Buttons: Light, Dark, System
+                        Text(
+                            text = "Theme Preference",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // Light Button
+                            val isLightSelected = !followSystem && !isDark
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (isLightSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                border = if (isLightSelected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { updateThemeMode(newIsDark = false, newFollowSystem = false) }
+                                    .testTag("theme_mode_light_button")
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(text = "☀️", fontSize = 18.sp)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Light",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = if (isLightSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isLightSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+
+                            // Dark Button
+                            val isDarkSelected = !followSystem && isDark
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (isDarkSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                border = if (isDarkSelected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { updateThemeMode(newIsDark = true, newFollowSystem = false) }
+                                    .testTag("theme_mode_dark_button")
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(text = "🌙", fontSize = 18.sp)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Dark",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = if (isDarkSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isDarkSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+
+                            // System Button
+                            val isSystemSelected = followSystem
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (isSystemSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                border = if (isSystemSelected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { updateThemeMode(newIsDark = false, newFollowSystem = true) }
+                                    .testTag("theme_mode_system_button")
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(text = "📱", fontSize = 18.sp)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "System",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = if (isSystemSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSystemSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
 

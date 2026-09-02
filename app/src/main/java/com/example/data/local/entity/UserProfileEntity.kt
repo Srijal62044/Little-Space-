@@ -16,6 +16,6 @@ data class UserProfileEntity(
     val favoriteTheme: String = "Rose Blush", // Rose Blush, Matcha Sage, Lavender Dream, Warm Peach, Cozy Latte, Twilight
     val morningGreeting: String = "Good morning, Priyanka 🌷",
     val isOnboardingCompleted: Boolean = false,
-    val isDarkMode: Boolean = false,
-    val followSystemTheme: Boolean = true
+    val isDarkMode: Boolean = true,
+    val followSystemTheme: Boolean = false
 )
