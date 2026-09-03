@@ -161,23 +161,27 @@ class BirthdayNotificationWorker(
         const val WORK_NAME = "BirthdayNotificationPeriodicCheck"
 
         fun schedule(context: Context) {
-            val constraints = Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
-                .build()
+            try {
+                val constraints = Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
+                    .build()
 
-            // Run periodic check every 30 minutes in background
-            val periodicWork = PeriodicWorkRequestBuilder<BirthdayNotificationWorker>(
-                30, TimeUnit.MINUTES,
-                10, TimeUnit.MINUTES
-            )
-                .setConstraints(constraints)
-                .build()
+                // Run periodic check every 30 minutes in background
+                val periodicWork = PeriodicWorkRequestBuilder<BirthdayNotificationWorker>(
+                    30, TimeUnit.MINUTES,
+                    10, TimeUnit.MINUTES
+                )
+                    .setConstraints(constraints)
+                    .build()
 
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-                WORK_NAME,
-                ExistingPeriodicWorkPolicy.KEEP,
-                periodicWork
-            )
+                WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+                    WORK_NAME,
+                    ExistingPeriodicWorkPolicy.KEEP,
+                    periodicWork
+                )
+            } catch (e: Throwable) {
+                Log.w(TAG, "WorkManager periodic schedule could not be enqueued: ${e.message}")
+            }
         }
     }
 }

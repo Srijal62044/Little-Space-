@@ -26,7 +26,7 @@ import com.example.data.local.entity.*
         RemixPresetEntity::class,
         GalleryCreationEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -53,7 +53,10 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "priyanka_little_space.db"
-                ).fallbackToDestructiveMigration().build()
+                )
+                    .fallbackToDestructiveMigration()
+                    .fallbackToDestructiveMigrationOnDowngrade()
+                    .build()
                 INSTANCE = instance
                 instance
             }

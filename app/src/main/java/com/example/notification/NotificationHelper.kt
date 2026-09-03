@@ -80,7 +80,7 @@ object NotificationHelper {
         )
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID_BIRTHDAY)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(message)
             .setStyle(
@@ -99,8 +99,8 @@ object NotificationHelper {
         try {
             val notificationManager = NotificationManagerCompat.from(context)
             notificationManager.notify(notificationId, builder.build())
-        } catch (e: SecurityException) {
-            // Permission might have been revoked by user in system settings
+        } catch (e: Throwable) {
+            // Permission might have been revoked by user in system settings or Bad notification error
         }
     }
 
@@ -133,7 +133,7 @@ object NotificationHelper {
         )
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID_BIRTHDAY)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(message)
             .setStyle(
@@ -152,7 +152,7 @@ object NotificationHelper {
         try {
             val notificationManager = NotificationManagerCompat.from(context)
             notificationManager.notify(notificationId, builder.build())
-        } catch (e: SecurityException) {
+        } catch (e: Throwable) {
             // Handled gracefully
         }
     }
@@ -178,7 +178,7 @@ object NotificationHelper {
         )
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID_BIRTHDAY)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(message)
             .setStyle(
@@ -197,7 +197,7 @@ object NotificationHelper {
         try {
             val notificationManager = NotificationManagerCompat.from(context)
             notificationManager.notify(NOTIFICATION_ID_TEST, builder.build())
-        } catch (e: SecurityException) {
+        } catch (e: Throwable) {
             // Handled gracefully
         }
     }

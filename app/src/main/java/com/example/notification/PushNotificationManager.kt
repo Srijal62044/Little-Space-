@@ -21,19 +21,27 @@ class PushNotificationManager(private val context: Context) {
     private val db = AppDatabase.getDatabase(context)
 
     fun initialize() {
-        NotificationHelper.createNotificationChannels(context)
-        BirthdayNotificationWorker.schedule(context)
-        syncTokenAndRegistration()
+        try {
+            NotificationHelper.createNotificationChannels(context)
+            BirthdayNotificationWorker.schedule(context)
+            syncTokenAndRegistration()
+        } catch (e: Throwable) {
+            Log.w("PushManager", "Failed to initialize push notifications: ${e.message}")
+        }
     }
 
     fun isNotificationPermissionGranted(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.POST_NOTIFICATIONS
-            ) == PackageManager.PERMISSION_GRANTED
-        } else {
-            true
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+        } catch (e: Throwable) {
+            false
         }
     }
 
@@ -51,50 +59,62 @@ class PushNotificationManager(private val context: Context) {
             }
 
             if (isFirebaseAvailable) {
-                FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-                    if (!task.isSuccessful) {
-                        Log.w("PushManager", "Fetching FCM registration token failed", task.exception)
-                        return@addOnCompleteListener
-                    }
+                try {
+                    FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                        if (!task.isSuccessful) {
+                            Log.w("PushManager", "Fetching FCM registration token failed", task.exception)
+                            return@addOnCompleteListener
+                        }
 
-                    val token = task.result
-                    Log.d("PushManager", "Current FCM Token: $token, Timezone: $currentTimezone")
+                        val token = task.result
+                        Log.d("PushManager", "Current FCM Token: $token, Timezone: $currentTimezone")
 
-                    scope.launch {
-                        try {
-                            val config = db.rewardConfigDao().getRewardConfigSync() ?: RewardConfigEntity()
-                            db.rewardConfigDao().insertOrUpdate(
-                                config.copy(
-                                    fcmToken = token,
-                                    deviceTimezone = currentTimezone,
-                                    fcmServerRegistered = true
+                        scope.launch {
+                            try {
+                                val config = db.rewardConfigDao().getRewardConfigSync() ?: RewardConfigEntity()
+                                db.rewardConfigDao().insertOrUpdate(
+                                    config.copy(
+                                        fcmToken = token,
+                                        deviceTimezone = currentTimezone,
+                                        fcmServerRegistered = true
+                                    )
                                 )
-                            )
-                        } catch (e: Exception) {
-                            Log.e("PushManager", "Failed to persist token", e)
+                            } catch (e: Throwable) {
+                                Log.e("PushManager", "Failed to persist token", e)
+                            }
                         }
                     }
+                } catch (e: Throwable) {
+                    Log.w("PushManager", "FirebaseMessaging token retrieval not available: ${e.message}")
                 }
             } else {
                 Log.i("PushManager", "Running in offline mode: local notification scheduler & WorkManager active.")
                 scope.launch {
+                    try {
+                        val config = db.rewardConfigDao().getRewardConfigSync() ?: RewardConfigEntity()
+                        db.rewardConfigDao().insertOrUpdate(
+                            config.copy(
+                                deviceTimezone = currentTimezone
+                            )
+                        )
+                    } catch (e: Throwable) {
+                        Log.w("PushManager", "Database write error in offline mode", e)
+                    }
+                }
+            }
+        } catch (e: Throwable) {
+            Log.i("PushManager", "Local WorkManager notification scheduler active.")
+            scope.launch {
+                try {
                     val config = db.rewardConfigDao().getRewardConfigSync() ?: RewardConfigEntity()
                     db.rewardConfigDao().insertOrUpdate(
                         config.copy(
                             deviceTimezone = currentTimezone
                         )
                     )
+                } catch (e: Throwable) {
+                    Log.w("PushManager", "Database write error in fallback mode", e)
                 }
-            }
-        } catch (e: Throwable) {
-            Log.i("PushManager", "Local WorkManager notification scheduler active.")
-            scope.launch {
-                val config = db.rewardConfigDao().getRewardConfigSync() ?: RewardConfigEntity()
-                db.rewardConfigDao().insertOrUpdate(
-                    config.copy(
-                        deviceTimezone = currentTimezone
-                    )
-                )
             }
         }
     }

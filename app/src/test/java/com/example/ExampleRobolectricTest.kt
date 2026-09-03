@@ -3,13 +3,14 @@ package com.example
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36])
+@Config(sdk = [34])
 class ExampleRobolectricTest {
 
   @Test
@@ -17,5 +18,13 @@ class ExampleRobolectricTest {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val appName = context.getString(R.string.app_name)
     assertEquals("Little Space", appName)
+  }
+
+  @Test
+  fun `verify application and activity class loadable`() {
+    val appClass = Class.forName("com.example.LittleSpaceApp")
+    assertNotNull(appClass)
+    val activityClass = Class.forName("com.example.MainActivity")
+    assertNotNull(activityClass)
   }
 }

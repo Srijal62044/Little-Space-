@@ -1,0 +1,3 @@
+-keep class com.example.MainActivity { *; }
+-keep class com.example.LittleSpaceApp { *; }
+-keep class com.example.** { *; }

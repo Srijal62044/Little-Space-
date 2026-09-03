@@ -47,16 +47,25 @@ import com.example.ui.viewmodel.MainViewModel
 class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
-    private lateinit var pushManager: PushNotificationManager
+    private var pushManager: PushNotificationManager? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        pushManager = PushNotificationManager(applicationContext)
-        pushManager.initialize()
+        try {
+            val manager = PushNotificationManager(applicationContext)
+            manager.initialize()
+            pushManager = manager
+        } catch (e: Throwable) {
+            android.util.Log.e("MainActivity", "Failed to initialize PushNotificationManager safely", e)
+        }
 
-        handleBirthdayIntent(intent)
+        try {
+            handleBirthdayIntent(intent)
+        } catch (e: Throwable) {
+            android.util.Log.e("MainActivity", "Failed to handle birthday intent safely", e)
+        }
 
         setContent {
             val context = LocalContext.current
@@ -70,14 +79,18 @@ class MainActivity : ComponentActivity() {
                 contract = ActivityResultContracts.RequestPermission()
             ) { isGranted ->
                 if (isGranted) {
-                    pushManager.syncTokenAndRegistration()
+                    pushManager?.syncTokenAndRegistration()
                 }
             }
 
             LaunchedEffect(Unit) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    if (!pushManager.isNotificationPermissionGranted()) {
-                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    try {
+                        if (pushManager?.isNotificationPermissionGranted() == false) {
+                            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    } catch (e: Throwable) {
+                        android.util.Log.w("MainActivity", "Notification permission check failed", e)
                     }
                 }
             }
