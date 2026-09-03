@@ -26,6 +26,17 @@ jobs:
       - name: Make Gradle executable
         run: chmod +x gradlew
 
+      - name: Inject Gemini API Key into .env
+        env:
+          GEMINI_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -n "$GEMINI_KEY" ]; then
+            echo "GEMINI_API_KEY=$GEMINI_KEY" > .env
+            echo "Successfully configured GEMINI_API_KEY for build"
+          else
+            echo "GEMINI_API_KEY not found in repository secrets, will use placeholder from .env.example"
+          fi
+
       - name: Build Debug APK
         run: ./gradlew assembleDebug
 
